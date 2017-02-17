@@ -9,8 +9,8 @@ LID_CONTROL/OPEN
 
 FEEDBACK/START 1.1
 .w 500
-.s FEEDBACK 6 
-# state 6: Calibrated
+.s FEEDBACK 7
+# state 7: InProgress
 
 BIAS_CONTROL/SET_GLOBAL_DAC 1
 .w 500
