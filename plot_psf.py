@@ -1,65 +1,73 @@
 # coding: utf-8
 from astropy.io import fits
-from fact.plotting import camera
-import matplotlib.pyplot as plt
 import pandas as pd
-from datetime import datetime
 import numpy as np
 from scipy.stats import norm
-from scipy.optimize import curve_fit
+import astropy.units as u
+from argparse import ArgumentParser
+import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from tqdm import tqdm
+
+parser = ArgumentParser()
+parser.add_argument('datafile')
+parser.add_argument('fitresults')
+parser.add_argument('outputfile')
+
+
+pixel_width = 9.5 * u.mm
+focal_length = 4.889 * u.m
+sidereal_day = 1 * u.sday
+pixel_fov = np.arctan(pixel_width / focal_length)
 
 
 def gauss(x, mu, sigma, A, off):
     return A * norm(mu, sigma).pdf(x) + off
 
 
-f = fits.open('./ursa_star_pedestal.fits')
+if __name__ == '__main__':
 
-ped_var = f[1].data['ped_var'].byteswap().newbyteorder()
-unixtime = f[1].data['UnixTimeUTC'].byteswap().newbyteorder()
+    args = parser.parse_args()
 
-unixtime = unixtime[:, 0] + unixtime[:, 1] / 1e6
+    f = fits.open(args.datafile)
+    df = pd.read_csv(args.fitresults).dropna()
 
+    print(df.sigma.describe())
 
-fig_cam = plt.figure(figsize=(8, 8))
-ax = fig_cam.add_axes([0, 0, 1, 1])
-ax.set_axis_off()
+    ped_var = f[1].data['ped_var']
 
-camera(ped_var.sum(axis=0), ax=ax)
+    unixtime = f[1].data['UnixTimeUTC']
+    unixtime = (unixtime[:, 0] + unixtime[:, 1] / 1e6) * u.s
+    time = unixtime - unixtime.min()
 
-fig_cam.savefig('camera_pedvar.png', dpi=300)
+    x = (time * 360 * u.deg / sidereal_day * pixel_width / pixel_fov)
+    x_mm = x.to(u.mm).value
 
-fig, ax = plt.subplots()
+    fig, ax = plt.subplots()
 
-x_mm = unixtime / 3600 * (360 / 24) * (9.5 / 0.1)
+    y = np.zeros_like(x_mm)
+    # data, = ax.plot(x_mm, y, '.', alpha=0.1, ms=2)
+    data_smooth, = ax.plot(x_mm, y)
+    fit, = ax.plot(x_mm, y)
 
+    ax.set_xlabel(r'$x \,\, / \,\, \, \mathrm{mm}$')
+    ax.set_ylabel(r'$\mathtt{ped\_var}$')
+    ax.set_title('Pixel 0, $\sigma = 0.00\,\mathrm{mm}$')
 
-sigmas = []
-with PdfPages('star_pedvar.pdf') as pdf:
-    for pix in tqdm(range(1440)):
-        y = pd.Series(ped_var[:, pix]).rolling(200, center=True).mean()
-        if y.dropna().max() < 2e5:
-            continue
+    fig.tight_layout()
 
+    with PdfPages(args.outputfile) as pdf:
 
-        mask = np.isfinite(y).values
+        for r in tqdm(df.itertuples()):
 
-        x0 = x_mm[np.argmax(y[mask])]
-        params, cov = curve_fit(gauss, x_mm[mask], y[mask], p0=(x0, 5.5, 200e5, 20e4))
+            y = ped_var[:, r.chid]
+            y_smooth = pd.Series(y).rolling(200, center=True).mean()
 
-        ax.cla()
+            ax.set_ylim(0, 1.1 * y_smooth.max())
+            ax.set_title('Pixel {}, $\sigma = {:.2f}\,\mathrm{{mm}}$'.format(r.chid, r.sigma))
 
-        ax.plot(x_mm[mask], y[mask])
-        ax.plot(x_mm[mask], gauss(x_mm[mask], *params))
+            # data.set_ydata(y)
+            data_smooth.set_ydata(y_smooth.values)
+            fit.set_ydata(gauss(x_mm, r.mu, r.sigma, r.A, r.off))
 
-        ax.set_xlabel('x / mm')
-        ax.set_ylabel('ped_var rolling mean')
-        ax.set_title('Pixel {}'.format(pix))
-
-        fig.tight_layout()
-        pdf.savefig(fig)
-        sigmas.append(params[1])
-
-print(np.mean(sigmas), '+-', np.std(sigmas), sep='')
+            pdf.savefig(fig)
