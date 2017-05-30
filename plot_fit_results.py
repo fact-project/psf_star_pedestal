@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from fact.pixels import get_pixel_coords
+from fact.instrument.camera import get_pixel_coords
 from fact.plotting import camera
 import matplotlib.pyplot as plt
 from argparse import ArgumentParser
@@ -24,8 +24,8 @@ if __name__ == '__main__':
     plt.show()
 
     x, y = get_pixel_coords()
-    df['x'] = x.values
-    df['y'] = y.values
+    df['x'] = x
+    df['y'] = y
     df['r'] = np.sqrt(df.x**2 + df.y**2)
 
     xplot = np.linspace(0, 190, 2)

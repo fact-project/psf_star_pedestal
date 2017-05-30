@@ -18,7 +18,7 @@ parser.add_argument('outputfile')
 pixel_width = 9.5 * u.mm
 focal_length = 4.889 * u.m
 sidereal_day = 1 * u.sday
-pixel_fov = np.arctan(pixel_width / focal_length)
+pixel_fov = 2 * np.arctan(0.5 * pixel_width / focal_length)
 
 
 def gauss(x, mu, sigma, A, off):
@@ -58,7 +58,7 @@ if __name__ == '__main__':
 
     with PdfPages(args.outputfile) as pdf:
 
-        for r in tqdm(df.itertuples()):
+        for idx, r in tqdm(df.iterrows()):
 
             y = ped_var[:, r.chid]
             y_smooth = pd.Series(y).rolling(200, center=True).mean()
