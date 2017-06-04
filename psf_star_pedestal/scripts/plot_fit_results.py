@@ -29,7 +29,7 @@ def main(inputfile, output, threshold):
     cmap.set_bad('lightgray')
     camera(sigma, cmap=cmap)
 
-    df = df.query('A >= @args.threshold')
+    df = df.query('A >= @threshold')
 
     plt.show()
 
