@@ -18,15 +18,6 @@ def fit(x, y):
     x0 = x[idx]
     amp = y[idx]
 
-    if amp < 150e3:
-        return {
-            'mu': np.nan,
-            'sigma': np.nan,
-            'A': np.nan,
-            'off': np.nan,
-            'status': 'low_amplitude',
-        }
-
     try:
         params, cov = curve_fit(
             gaussian_and_constant, x, y, p0=(x0, 5.5, amp, 20e4)
